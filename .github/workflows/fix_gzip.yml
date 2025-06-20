@@ -11,7 +11,7 @@ jobs:
       
     - name: Fix GZIP extensions
       run: |
-        find ./webgl-build -type f -name '*.gz' | while read f; do 
+        find ./web -type f -name '*.gz' | while read f; do 
           mv "$f" "${f%.gz}"
         done
         
