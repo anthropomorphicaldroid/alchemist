@@ -1,0 +1,24 @@
+name: Fix GZIP Headers
+
+on: [push]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+      
+    - name: Fix GZIP extensions
+      run: |
+        find ./webgl-build -type f -name '*.gz' | while read f; do 
+          mv "$f" "${f%.gz}"
+        done
+        
+    - name: Commit changes
+      run: |
+        git config user.name "GitHub Actions"
+        git config user.email "actions@github.com"
+        git add .
+        git commit -m "Remove .gz extensions" || echo "No changes to commit"
+        git push
