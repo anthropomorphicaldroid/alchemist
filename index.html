@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Unity WebGL Player | Alchemystic</title>
+    <title>Alchemystic Game</title>
     <style>
       body, html {
         margin: 0;
@@ -13,7 +13,8 @@
         width: 100%;
         height: 100%;
         position: fixed;
-        background: #828080;
+        background: #000;
+        touch-action: none;
       }
       #unity-container {
         position: absolute;
@@ -21,11 +22,15 @@
         left: 0;
         width: 100%;
         height: 100%;
+        display: flex;
+        justify-content: center;
+        align-items: center;
       }
       #unity-canvas {
         width: 100%;
         height: 100%;
         display: block;
+        object-fit: contain;
       }
     </style>
   </head>
@@ -38,8 +43,16 @@
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script>
       // Инициализация Telegram Web App
-      Telegram.WebApp.ready();
-      Telegram.WebApp.expand();
+      if (window.Telegram && Telegram.WebApp) {
+        Telegram.WebApp.ready();
+        Telegram.WebApp.expand();
+      } else {
+        console.warn("Telegram WebApp not detected. Running in standalone mode");
+      }
+      
+      // Определяем плотность пикселей
+      const pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
+      console.log("Device Pixel Ratio:", pixelRatio);
       
       // Создаем конфиг Unity
       const config = {
@@ -50,7 +63,7 @@
         companyName: "AlchemysticGames",
         productName: "Alchemystic",
         productVersion: "0.21",
-        devicePixelRatio: 1,
+        devicePixelRatio: pixelRatio, // Важно: передаем реальный DPI устройства
         matchWebGLToCanvasSize: true
       };
       
@@ -60,26 +73,31 @@
         const container = document.getElementById("unity-container");
         
         // Получаем доступную высоту с учетом шапки Telegram
-        const headerHeight = window.Telegram?.WebApp?.headerHeight || 40;
+        const headerHeight = (window.Telegram?.WebApp?.headerHeight || 40) * pixelRatio;
         const availableHeight = window.innerHeight - headerHeight;
         
-        // Устанавливаем размеры контейнера
-        container.style.top = `${headerHeight}px`;
-        container.style.height = `${availableHeight}px`;
+        // Рассчитываем физические размеры
+        const physicalWidth = Math.floor(window.innerWidth * pixelRatio);
+        const physicalHeight = Math.floor(availableHeight * pixelRatio);
         
-        // Обновляем размеры Canvas
-        if (canvas) {
-          canvas.width = window.innerWidth;
-          canvas.height = availableHeight;
-        }
+        // Устанавливаем размеры Canvas
+        canvas.style.width = `${window.innerWidth}px`;
+        canvas.style.height = `${availableHeight}px`;
+        canvas.width = physicalWidth;
+        canvas.height = physicalHeight;
+        
+        console.log(`Canvas size: ${physicalWidth}x${physicalHeight} (${window.innerWidth}x${availableHeight} CSS)`);
       }
       
-      // Создаем инстанс Unity после загрузки
-      window.addEventListener('load', () => {
+      // Создаем инстанс Unity
+      function initializeUnity() {
         resizeUnityCanvas();
+        
         createUnityInstance(document.querySelector("#unity-canvas"), config)
           .then(unityInstance => {
             console.log("Unity instance created");
+            window.unityInstance = unityInstance;
+            
             // Передаем информацию о пользователе в Unity
             if (window.Telegram?.WebApp) {
               const userData = {
@@ -88,26 +106,33 @@
               };
               unityInstance.SendMessage('TelegramManager', 'SetUserData', JSON.stringify(userData));
             }
+            
+            // Сигнал для Unity о готовности
+            unityInstance.SendMessage('GameManager', 'OnWebGLReady');
+          })
+          .catch(error => {
+            console.error("Unity initialization failed:", error);
           });
-      });
-      
-      // Обработчик изменения размера окна
-      window.addEventListener('resize', resizeUnityCanvas);
-      Telegram.WebApp.onEvent('viewportChanged', resizeUnityCanvas);
-      
-      // Инициализация для тестирования вне Telegram
-      if (!window.Telegram) {
-        window.Telegram = { 
-          WebApp: {
-            ready: () => console.log("Telegram ready (simulated)"),
-            expand: () => console.log("Telegram expand (simulated)"),
-            headerHeight: 40,
-            onEvent: (event, callback) => {
-              window.addEventListener('resize', callback);
-            }
-          }
-        };
       }
+      
+      // Запуск после полной загрузки
+      window.addEventListener('load', initializeUnity);
+      
+      // Обработчики изменения размеров
+      window.addEventListener('resize', resizeUnityCanvas);
+      if (window.Telegram?.WebApp) {
+        Telegram.WebApp.onEvent('viewportChanged', resizeUnityCanvas);
+      }
+      
+      // Функция для обновления размеров из Unity
+      window.resizeGame = function(width, height) {
+        const canvas = document.getElementById("unity-canvas");
+        if (!canvas) return;
+        
+        canvas.style.width = `${width}px`;
+        canvas.style.height = `${height}px`;
+        console.log(`Resized from Unity: ${width}x${height}`);
+      };
     </script>
   </body>
 </html>
