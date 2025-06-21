@@ -1,11 +1,12 @@
 <!DOCTYPE html>
 <html lang="en-us">
-  <head>
+<head>
     <meta charset="utf-8">
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Alchemystic Game</title>
     <style>
+      /* Убираем все отступы и делаем фон черным (он будет виден, если пропорции экрана не совпадают с игрой) */
       body, html {
         margin: 0;
         padding: 0;
@@ -14,8 +15,9 @@
         height: 100%;
         position: fixed;
         background: #000;
-        touch-action: none;
+        touch-action: none; /* Отключает жесты браузера, типа pinch-to-zoom */
       }
+      /* Контейнер для центрирования холста */
       #unity-container {
         position: absolute;
         top: 0;
@@ -26,33 +28,70 @@
         justify-content: center;
         align-items: center;
       }
+      /* Убираем фиксированные размеры из CSS. Теперь JS будет полностью управлять размером холста. */
       #unity-canvas {
-        width: 100vmin;
-        height: 100vmin;
-        max-width: 100%;
-        max-height: 100%;
         display: block;
+        /* Размеры будут установлены через JavaScript */
       }
     </style>
-  </head>
-  <body>
+</head>
+<body>
     <div id="unity-container">
-      <canvas id="unity-canvas"></canvas>
+        <canvas id="unity-canvas"></canvas>
     </div>
-    
+
     <script src="Build/web.loader.js"></script>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script>
-      // Инициализация Telegram Web App
+      const canvas = document.getElementById("unity-canvas");
+
+      // --- Функция для адаптации размера Canvas ---
+      function resizeUnityCanvas() {
+        if (!canvas) return;
+
+        // Получаем доступные размеры
+        let availableWidth = window.innerWidth;
+        let availableHeight = window.innerHeight;
+
+        // Если приложение запущено в Telegram, используем его точные размеры видимой области
+        if (window.Telegram && Telegram.WebApp.viewportHeight) {
+            availableWidth = Telegram.WebApp.viewportWidth;
+            availableHeight = Telegram.WebApp.viewportHeight;
+        }
+
+        // ВАЖНО: Установите здесь соотношение сторон вашей игры (ширина / высота)
+        const gameRatio = 600 / 960;
+        const screenRatio = availableWidth / availableHeight;
+
+        let newWidth, newHeight;
+
+        if (screenRatio > gameRatio) {
+            // Экран шире, чем игра. Высота 100%, ширина подгоняется.
+            newHeight = availableHeight;
+            newWidth = newHeight * gameRatio;
+        } else {
+            // Экран выше, чем игра (или такой же). Ширина 100%, высота подгоняется.
+            newWidth = availableWidth;
+            newHeight = newWidth / gameRatio;
+        }
+
+        // Устанавливаем итоговые размеры для холста
+        canvas.style.width = `${newWidth}px`;
+        canvas.style.height = `${newHeight}px`;
+      }
+
+      // --- Инициализация Telegram Web App ---
       if (window.Telegram && Telegram.WebApp) {
         Telegram.WebApp.ready();
-        Telegram.WebApp.expand();
-        Telegram.WebApp.enableAutoResize = true;
+        Telegram.WebApp.expand(); // Раскрываем приложение на весь экран
+
+        // Главное событие для отслеживания изменений размера в Telegram
+        Telegram.WebApp.onEvent('viewportChanged', resizeUnityCanvas);
       } else {
         console.warn("Telegram WebApp not detected. Running in standalone mode");
       }
-      
-      // Создаем конфиг Unity
+
+      // --- Конфиг и запуск Unity ---
       const config = {
         dataUrl: "Build/web.data",
         frameworkUrl: "Build/web.framework.js",
@@ -62,88 +101,35 @@
         productName: "Alchemystic",
         productVersion: "0.21",
         devicePixelRatio: window.devicePixelRatio || 1,
+        // Эта опция говорит Unity подгонять размер рендера под размер canvas.
+        // Она важна для корректного отображения после изменения размеров CSS.
         matchWebGLToCanvasSize: true
       };
-      
-      // Функция адаптации размера Canvas
-      function resizeUnityCanvas() {
-        const canvas = document.getElementById("unity-canvas");
-        const container = document.getElementById("unity-container");
-        
-        // Получаем доступную высоту с учетом шапки Telegram
-        const headerHeight = window.Telegram?.WebApp?.headerHeight || 40;
-        const availableHeight = window.innerHeight - headerHeight;
-        
-        // Рассчитываем соотношение сторон
-        const screenRatio = window.innerWidth / availableHeight;
-        const gameRatio = 600 / 960; // Соотношение вашей игры 600x960
-        
-        // Вычисляем новые размеры
-        let newWidth, newHeight;
-        
-        if (screenRatio > gameRatio) {
-          // Широкий экран - ограничиваем по высоте
-          newHeight = availableHeight;
-          newWidth = availableHeight * gameRatio;
-        } else {
-          // Узкий экран - ограничиваем по ширине
-          newWidth = window.innerWidth;
-          newHeight = window.innerWidth / gameRatio;
-        }
-        
-        // Устанавливаем размеры Canvas
-        canvas.style.width = `${newWidth}px`;
-        canvas.style.height = `${newHeight}px`;
-        
-        // Центрируем Canvas
-        container.style.display = 'flex';
-        container.style.justifyContent = 'center';
-        container.style.alignItems = 'center';
-        
-        console.log(`Canvas size: ${newWidth}x${newHeight}`);
-      }
-      
-      // Создаем инстанс Unity
-      function initializeUnity() {
-        resizeUnityCanvas();
-        
-        createUnityInstance(document.querySelector("#unity-canvas"), config)
-          .then(unityInstance => {
-            console.log("Unity instance created");
-            window.unityInstance = unityInstance;
-            
-            // Передаем информацию о пользователе в Unity
-            if (window.Telegram?.WebApp) {
-              const userData = {
-                id: Telegram.WebApp.initDataUnsafe.user?.id,
-                name: Telegram.WebApp.initDataUnsafe.user?.first_name
-              };
-              unityInstance.SendMessage('TelegramManager', 'SetUserData', JSON.stringify(userData));
-            }
-          })
-          .catch(error => {
-            console.error("Unity initialization failed:", error);
-          });
-      }
-      
-      // Запуск после полной загрузки
-      window.addEventListener('load', initializeUnity);
-      
-      // Обработчики изменения размеров
+
+      // Вызываем ресайз в самом начале, чтобы установить правильный размер до загрузки Unity
+      resizeUnityCanvas();
+
+      createUnityInstance(canvas, config)
+        .then(unityInstance => {
+          console.log("Unity instance created");
+          window.unityInstance = unityInstance;
+
+          // Пример отправки данных в Unity
+          if (window.Telegram?.WebApp?.initDataUnsafe?.user) {
+            const userData = {
+              id: Telegram.WebApp.initDataUnsafe.user.id,
+              name: Telegram.WebApp.initDataUnsafe.user.first_name
+            };
+            unityInstance.SendMessage('TelegramManager', 'SetUserData', JSON.stringify(userData));
+          }
+        })
+        .catch(error => {
+          console.error("Unity initialization failed:", error);
+        });
+
+      // Добавляем слушатель на изменение размера окна для отладки в браузере
       window.addEventListener('resize', resizeUnityCanvas);
-      if (window.Telegram?.WebApp) {
-        Telegram.WebApp.onEvent('viewportChanged', resizeUnityCanvas);
-      }
-      
-      // Функция для обновления размеров из Unity
-      window.resizeGame = function(width, height) {
-        const canvas = document.getElementById("unity-canvas");
-        if (!canvas) return;
-        
-        canvas.style.width = `${width}px`;
-        canvas.style.height = `${height}px`;
-        console.log(`Resized from Unity: ${width}x${height}`);
-      };
+
     </script>
-  </body>
+</body>
 </html>
