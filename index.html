@@ -81,10 +81,10 @@
         const physicalHeight = Math.floor(availableHeight * pixelRatio);
         
         // Устанавливаем размеры Canvas
-        canvas.style.width = `${window.innerWidth}px`;
-        canvas.style.height = `${availableHeight}px`;
-        canvas.width = physicalWidth;
-        canvas.height = physicalHeight;
+        // canvas.style.width = `${window.innerWidth}px`;
+        // canvas.style.height = `${availableHeight}px`;
+        // canvas.width = physicalWidth;
+        // canvas.height = physicalHeight;
         
         console.log(`Canvas size: ${physicalWidth}x${physicalHeight} (${window.innerWidth}x${availableHeight} CSS)`);
       }
@@ -125,14 +125,14 @@
       }
       
       // Функция для обновления размеров из Unity
-      window.resizeGame = function(width, height) {
-        const canvas = document.getElementById("unity-canvas");
-        if (!canvas) return;
+      //window.resizeGame = function(width, height) {
+      //  const canvas = document.getElementById("unity-canvas");
+      //  if (!canvas) return;
         
-        canvas.style.width = `${width}px`;
-        canvas.style.height = `${height}px`;
-        console.log(`Resized from Unity: ${width}x${height}`);
-      };
+      //  canvas.style.width = `${width}px`;
+      //  canvas.style.height = `${height}px`;
+      //  console.log(`Resized from Unity: ${width}x${height}`);
+      //};
     </script>
   </body>
 </html>
